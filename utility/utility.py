@@ -33,9 +33,8 @@ class GramMatrix(nn.Module):
     def forward(self, input):
         b,c,h,w = input.size()
         Fe = input.view(b, c, h*w)
-        G = torch.bmm(Fe, Fe.transpose(1,2)) 
-        G.div_(h*w)
-        return G
+        G = torch.bmm(Fe, Fe.transpose(1,2))
+        return G.div(b*c*h*w)
 
 class GramMSELoss(nn.Module):
     def forward(self, input, target):
@@ -44,7 +43,7 @@ class GramMSELoss(nn.Module):
 
 def postp(tensor, image_size, invert): # to clip results in the range [0,1]
     t = postpa(tensor)
-    t[t>1] = 1    
+    t[t>1] = 1
     t[t<0] = 0
     img = postpb(t)
     if invert:
@@ -108,7 +107,7 @@ def load_images(img_dir, img_size, device, invert):
     # Make torch variable
     img_torch = prep(image)
     img_torch = Variable(img_torch.unsqueeze(0).to(device))
-    
+
     return img_torch
 
 # Function to save images
@@ -139,7 +138,7 @@ def save_images(content_image, opt_img, style_image1, style_image2, image_size, 
     d = ImageDraw.Draw(out_img)
     d.text((0,0), "Generated", font=fnt, fill=(0,0,0))
     out_img.save(output_path + '/{}.jpg'.format(n_iter))
-        
+
     images = [style_image1, style_image2, content_image, out_img]
     # widths, heights = zip(*(i.size for i in images))
     widths = [i.size[0] for i in images]
@@ -154,7 +153,7 @@ def save_images(content_image, opt_img, style_image1, style_image2, image_size, 
         x_offset += im.size[0]
 
     new_im.save(output_path + '/all.bmp')
-    
+
 
 def make_folders(output_path):
     try:
@@ -177,7 +176,7 @@ def dist_cv2(input_tensor, device, image_size, content_invert):
     out_img = out_img.convert('L')
 
     img = np.asarray(out_img)
-    
+
     img = ndimage.grey_erosion(img, size=(3,3))
 
     img_dist = cv2.distanceTransform(img, cv2.DIST_L2, 3)
@@ -188,5 +187,5 @@ def dist_cv2(input_tensor, device, image_size, content_invert):
     cont_dist = torch.from_numpy(img_dist).float().to(device)
     f = cont_dist.unsqueeze(0)
     a = torch.cat((f,f,f),0)
-    a = a.unsqueeze(0)    
+    a = a.unsqueeze(0)
     return a

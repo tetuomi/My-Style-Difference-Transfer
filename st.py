@@ -1,6 +1,7 @@
 import argparse
 import os
 import os.path
+from glob import glob
 
 import torch
 from torch.autograd import Variable
@@ -32,11 +33,11 @@ parser.add_argument('--cw5', '-cw5', type=float,  default=1, help='cw5')
 # parser for input images paths and names
 parser.add_argument('--image_size', '-image_size', type=int, default=256)
 # parser for input images paths and names
-parser.add_argument('--serif_style_path', '-serif_style_path', type=str, default='Week1_22123_wB02_s01_ch1.tif')
-parser.add_argument('--nonserif_style_path', '-nonserif_style_path', type=str, default='Week1_22123_wB02_s01_ch1.tif')
-parser.add_argument('--content_path', '-content_path', type=str, default='Week1_22123_wB02_s01_ch1.tif')
+parser.add_argument('--serif_style_path', '-serif_style_path', type=str, default='input/1/style1_serif_A.png')
+parser.add_argument('--nonserif_style_path', '-nonserif_style_path', type=str, default='input/1/style2_sanserif_A.png')
+parser.add_argument('--content_path', '-content_path', type=str, default='input/1/1_content_sanserif_A.png')
 # parser for output path
-parser.add_argument('--output_path', '-output_path', type=str, default='./output', help='Path to save output files')
+parser.add_argument('--output_path', '-output_path', type=str, default='./output/', help='Path to save output files')
 # parser for cuda
 parser.add_argument('--cuda', '-cuda', type=str, default='cuda:0', help='cuda:0 or cuda:x')
 
@@ -81,12 +82,9 @@ style_invert = 1
 result_invert = content_invert
 
 # Get output path
-output_path = args.output_path
-try:
-    os.mkdir(output_path)
-except:
-    pass
-output_path = output_path + content_name[:-4] + '_' + style_name1[:-4] + '_' + style_name2[:-4] + '/'
+n = str(len(glob(args.output_path + '*'))+1) + '/'
+output_path = args.output_path + n
+os.makedirs(output_path, exist_ok=True)
 
 # Get network
 vgg = VGG()
@@ -107,14 +105,16 @@ opt_img = Variable(content_image.data.clone(), requires_grad=True)
 
 # Define layers, loss functions, weights and compute optimization targets
 # Style layers
-style_layers = ['r12','r22','r34','r44','r54'] 
-style_weights = [sw*1e3/n**2 for sw,n in zip([sw1,sw2,sw3,sw4,sw5],[64,128,256,512,1024])]
+style_layers = ['r12','r22','r34','r44','r54']
+# style_weights = [sw*1e3/n**2 for sw,n in zip([sw1,sw2,sw3,sw4,sw5],[64,128,256,512,1024])]
+style_weights = [sw for sw in [sw1,sw2,sw3,sw4,sw5]]
 # style_weights = [1,1,1,1,1]
 # Content layers
 # content_layers = ['r12','r22','r32','r42','r52']
 # content_layers = ['r31','r32','r33','r34','r41']
 content_layers = ['r42']
-content_weights = [1e3]
+# content_weights = [cw1*1e3]
+content_weights = [cw1]
 # content_weights = [cw1*1e4,cw2*1e4,cw3*1e4,cw4*1e4,cw5*1e4]
 
 
@@ -176,7 +176,7 @@ while n_iter[0] <= max_iter:
         out = vgg(opt_img, loss_layers)
         content_layer_losses = []
         style_layer_losses  = []
-        
+
         opt_fms_style = []
         opt_fms_content = []
         # Divide between style feature maps and content feature maps
@@ -191,21 +191,24 @@ while n_iter[0] <= max_iter:
 #        gramm_diff = [GramMatrix()(A) for A in diff_fms_style]
         ## Difference between gram matrix of feature map differences
 #        style_layer_losses = [style_weights[i]*(nn.MSELoss()(gramm_diff[i], gramm_style[i])) for i in range(len(style_layers))]
-        
+
         opt_gramm = [GramMatrix()(A) for A in opt_fms_style]
+        # Difference between gram matrices of content and opt
         gramm_diff = [(opt_gramm[i] - content_gramm[i]) for i in range(len(style_layers))]
+        # MSE between (diff gram matrices style1,2) and (diff gram matrices opt, content)
         style_layer_losses = [style_weights[i]*nn.MSELoss()(gramm_diff[i], gramm_style[i]) for i in range(len(style_layers))]
 
         ## Difference between feature maps on content layers
         fms_diff = [(opt_fms_content[i] - content_fms_content[i]) for i in range(len(content_layers))]
+        # MSE between (diff fms style1,2) and (diff fms opt, content)
         content_layer_losses = [content_weights[i]*nn.MSELoss()(fms_diff[i],style_fms_content[i]) for i in range(len(content_layers))]
         # content_layer_losses = [content_weights[i]*nn.MSELoss()(opt_fms_content[i],content_fms_content[i]) for i in range(len(content_layers))]
-        
+
 
         # losses
         content_loss = sum(content_layer_losses)
         style_loss   = sum(style_layer_losses)
-        
+
         # ld1 = len(str(content_loss.item()))
         # ld2 = len(str(style_loss.item()))
         # if ld1 > ld2:
@@ -214,8 +217,8 @@ while n_iter[0] <= max_iter:
         # else:
         #     div = ld2 - ld1
         #     content_loss = content_loss*(10**(div))
-        
-        
+
+
         layer_losses = content_layer_losses + style_layer_losses
 
         # total loss
@@ -249,7 +252,7 @@ while n_iter[0] <= max_iter:
 
         n_iter[0] += 1
         return loss
-      
+
     optimizer.step(closure)
 
 # Save sum images
