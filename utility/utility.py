@@ -18,14 +18,14 @@ import matplotlib.pyplot as plt
 
 # post processing for images
 postpa = transforms.Compose([transforms.Lambda(lambda x: x.mul_(1./255)),
-                           transforms.Normalize(mean=[-0.40760392, -0.45795686, -0.48501961], #add imagenet mean
+                            transforms.Normalize(mean=[-0.40760392, -0.45795686, -0.48501961], #add imagenet mean
                                                 std=[1,1,1]),
                             # transforms.Normalize(mean=[0,0,0], #subtract imagenet mean
                             #                         std=[1/0.5,1/0.5,1/0.5]),
                             # transforms.Normalize(mean=[-0.5,-0.5,-0.5], #subtract imagenet mean
                             #                         std=[1,1,1]),
-                           transforms.Lambda(lambda x: x[torch.LongTensor([2,1,0])]), #turn to RGB
-                           ])
+                            transforms.Lambda(lambda x: x[torch.LongTensor([2,1,0])]), #turn to RGB
+                            ])
 postpb = transforms.Compose([transforms.ToPILImage()])
 
 # gram matrix and loss
@@ -107,6 +107,24 @@ def load_images(img_dir, img_size, device, invert):
     # Make torch variable
     img_torch = prep(image)
     img_torch = Variable(img_torch.unsqueeze(0).to(device))
+
+    return img_torch
+
+def load_mono_images(img_dir, img_size, device, invert):
+    prep = transforms.Compose([transforms.Resize((img_size,img_size)),
+                                transforms.ToTensor(),
+                                # transforms.Normalize((0.5, ), (0.5, )),
+                                # transforms.Lambda(lambda x: x.div(255)),
+                                ])
+    # Load & invert image
+    image = PIL.Image.open(img_dir)
+    image = image.convert('L')
+    if invert:
+        image = PIL.ImageOps.invert(image)
+    # img_np = np.array(image) / 255
+    # Make torch variable
+    img_torch = prep(image).to(device)
+    # img_torch = img_torch.unsqueeze(0).to(device)
 
     return img_torch
 
