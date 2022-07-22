@@ -1,1 +1,6 @@
-vgg_conv.pth
+*.pth
+**/__pycache__/**
+output*/**
+loss.png
+acc.png
+input/**
