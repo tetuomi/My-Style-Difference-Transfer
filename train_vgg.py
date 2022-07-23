@@ -1,3 +1,4 @@
+import sys
 import random
 from os import path
 
@@ -65,7 +66,8 @@ def make_dataloader():
     img_size = 256
     batch_size = 64
 
-    transform = transforms.Compose([transforms.Resize((img_size,img_size)),
+    transform = transforms.Compose([
+                            transforms.Resize((img_size,img_size)),
                             transforms.ToTensor(),
                             transforms.Lambda(lambda x: x[torch.LongTensor([2,1,0])]), #turn to BGR
                             transforms.Normalize(mean=[0.40760392, 0.45795686, 0.48501961], #subtract imagenet mean
@@ -88,14 +90,14 @@ def make_dataloader():
 
 def train(device):
     layers = ['fc3']
-    epochs = 100
+    epochs = 10
     n_classes = 26
     vgg_filename = 'resnet_BGR.pth'
     device = 'cuda:0' if torch.cuda.is_available else 'cpu'
 
     # vgg = VGG(n_classes)
     from torchvision import models
-    vgg = models.resnet18(pretrained=False)
+    vgg = models.resnet18(weights=None)
     vgg.fc = nn.Linear(512, 26)
 
     optimizer = optim.Adam(vgg.parameters(), lr=0.001)
@@ -159,6 +161,35 @@ def train(device):
 
     return epoch_loss_dic, epoch_acc_dic
 
+def test():
+    device = "cuda:0" if torch.cuda.is_available() else "cpu"
+    print("using", device)
+
+    # vgg = VGG(n_classes)
+    from torchvision import models
+    vgg = models.resnet18(weights=None)
+    vgg.fc = nn.Linear(512, 26)
+    vgg.load_state_dict(torch.load('./resnet_BGR.pth'))
+    vgg.to(device)
+
+    vgg.eval()
+
+    dataloader = make_dataloader()
+
+    correct = 0
+    for inputs, labels in tqdm(dataloader["test"]):
+        inputs = inputs.to(device)
+        labels = labels.to(device)
+
+        logits = vgg(inputs)
+        probs = nn.Softmax(dim=1)(logits)
+        _, preds = torch.max(probs, 1)
+
+        correct += torch.sum(preds == labels.data)
+
+    acc = correct / len(dataloader["test"].dataset)
+    print("ACC : ", acc.item())
+
 
 def save_history(his, title):
     fig = plt.figure()
@@ -188,4 +219,10 @@ if __name__ == '__main__':
     np.random.seed(SEED)
     random.seed(SEED)
 
-    main()
+    args = sys.argv
+    if len(args) < 1:
+        main()
+    elif args[1] == 'test':
+        test()
+    else:
+        print('Invald args... (maybe test)')
