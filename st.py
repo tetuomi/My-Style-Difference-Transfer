@@ -106,7 +106,7 @@ vgg.eval()
 # vgg_with_top = VGGWithTOP(n_classes)
 # vgg_with_top.load_state_dict(torch.load('./vgg_with_top.pth'))
 from torchvision import models
-vgg_with_top = models.resnet18(pretrained=False)
+vgg_with_top = models.resnet18(weights=None)
 vgg_with_top.fc = nn.Linear(512, 26)
 vgg_with_top.load_state_dict(torch.load('./resnet_BGR.pth'))
 
@@ -261,7 +261,7 @@ while n_iter[0] <= max_iter:
         # opt_logits = out_logits
         out_logits = vgg_with_top(opt_img)
         opt_logits = [out_logits]
-        
+
         cross_entropy_losses = [cross_entropy_weights[i]*nn.CrossEntropyLoss()(opt_logits[i], content_class) for i in range(len(cross_entropy_layers))]
 
         closs_entropy_loss = sum(cross_entropy_losses)
@@ -282,10 +282,13 @@ while n_iter[0] <= max_iter:
             if len(content_layers)>0: print('Content loss: {}'.format(content_loss.item()))
             if len(style_layers)>0:   print('Style loss  : {}'.format(style_loss.item()))
             if len(cross_entropy_layers)>0:   print('Cross Entropy loss  : {}'.format(closs_entropy_loss.item()))
-            prob = nn.Softmax(dim=1)(opt_logits[0].cpu().detach().clone())
-            pred = torch.max(prob, 1)[1].item()
+            with torch.no_grad():
+                # logit = vgg_with_top(opt_img.detach().clone(), cross_entropy_layers)[0]
+                logit = vgg_with_top(opt_img.detach().clone())
+                prob = nn.Softmax(dim=1)(logit.cpu().detach().clone())
+                pred = torch.max(prob, 1)[1].item()
             print('predict label:', chr(ord('A') + pred), 'prob:',  prob[0][pred].item())
-            print('other prob:', prob[0])
+            # print('other prob:', prob[0])
             print('Total loss  : {}\n'.format(loss.item()))
 
             # Save loss graph
