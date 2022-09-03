@@ -17,14 +17,15 @@ import matplotlib.pyplot as plt
 
 
 # post processing for images
-postpa = transforms.Compose([transforms.Lambda(lambda x: x.mul_(1./255)),
-                            transforms.Normalize(mean=[-0.40760392, -0.45795686, -0.48501961], #add imagenet mean
-                                                std=[1,1,1]),
-                            # transforms.Normalize(mean=[0,0,0], #subtract imagenet mean
-                            #                         std=[1/0.5,1/0.5,1/0.5]),
-                            # transforms.Normalize(mean=[-0.5,-0.5,-0.5], #subtract imagenet mean
-                            #                         std=[1,1,1]),
-                            transforms.Lambda(lambda x: x[torch.LongTensor([2,1,0])]), #turn to RGB
+postpa = transforms.Compose([
+                                # transforms.Lambda(lambda x: x.mul_(1./255)),
+                                # transforms.Normalize(mean=[-0.485/0.229, -0.456/0.224, -0.406/0.225], #add imagenet mean
+                                #                     std=[1/0.229, 1/0.224, 1/0.225]),
+                                # transforms.Normalize(mean=[0,0,0], #subtract imagenet mean
+                                #                         std=[1/0.5,1/0.5,1/0.5]),
+                                # transforms.Normalize(mean=[-0.5,-0.5,-0.5], #subtract imagenet mean
+                                #                         std=[1,1,1]),
+                                # transforms.Lambda(lambda x: x[torch.LongTensor([2,1,0])]), #turn to RGB
                             ])
 postpb = transforms.Compose([transforms.ToPILImage()])
 
@@ -89,15 +90,14 @@ def custom_postp(tensor, image_size, output_path):
 
 # Function to load images
 def load_images(img_dir, img_size, device, invert):
-    prep = transforms.Compose([transforms.Resize((img_size,img_size)),
-                            # transforms.RandomRotation(angle),
-                            transforms.ToTensor(),
-                            transforms.Lambda(lambda x: x[torch.LongTensor([2,1,0])]), #turn to BGR
-                            transforms.Normalize(mean=[0.40760392, 0.45795686, 0.48501961], #subtract imagenet mean
-                                                    std=[1,1,1]),
-                        #    transforms.Normalize(mean=[0.5, 0.5, 0.5], #add imagenet mean
-                        #                         std=[0.5,0.5,0.5]),
-                            transforms.Lambda(lambda x: x.mul_(255)),
+    prep = transforms.Compose([
+                                transforms.ToTensor(),
+                                transforms.Resize((img_size,img_size)),
+                                # transforms.RandomRotation(angle),
+                                # transforms.Lambda(lambda x: x[torch.LongTensor([2,1,0])]), #turn to BGR
+                                # transforms.Normalize(mean=[0.40760392, 0.45795686, 0.48501961], #subtract imagenet mean
+                                #                         std=[1,1,1]),
+                                # transforms.Lambda(lambda x: x.mul_(255)),
                             ])
     # Load & invert image
     image = Image.open(img_dir)
@@ -111,11 +111,12 @@ def load_images(img_dir, img_size, device, invert):
     return img_torch
 
 def load_mono_images(img_dir, img_size, device, invert):
-    prep = transforms.Compose([transforms.Resize((img_size,img_size)),
+    prep = transforms.Compose([
+                                transforms.Resize((img_size,img_size)),
                                 transforms.ToTensor(),
                                 # transforms.Normalize((0.5, ), (0.5, )),
                                 # transforms.Lambda(lambda x: x.div(255)),
-                                ])
+                            ])
     # Load & invert image
     image = PIL.Image.open(img_dir)
     image = image.convert('L')

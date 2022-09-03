@@ -32,15 +32,15 @@ parser.add_argument('--cw3', '-cw3', type=float,  default=1, help='cw3')
 parser.add_argument('--cw4', '-cw4', type=float,  default=1, help='cw4')
 parser.add_argument('--cw5', '-cw5', type=float,  default=1, help='cw5')
 # parser for cross entropy loss weights
-parser.add_argument('--cew1', '-cew1', type=float,  default=1e5, help='cew1')
+parser.add_argument('--cew1', '-cew1', type=float,  default=0, help='cew1')
 # parser for content class
 parser.add_argument('--content_class', '-content_class', type=int, default=0, help='content class')
 # parser for input images paths and names
 parser.add_argument('--image_size', '-image_size', type=int, default=256)
 # parser for input images paths and names
-parser.add_argument('--serif_style_path', '-serif_style_path', type=str, default='input/15/style1_serif_Q.png')
-parser.add_argument('--nonserif_style_path', '-nonserif_style_path', type=str, default='input/15/style2_sanserif_O.png')
-parser.add_argument('--content_path', '-content_path', type=str, default='input/15/content_sanserif_O.png')
+parser.add_argument('--serif_style_path', '-serif_style_path', type=str, default='input/1/style1_serif_A.png')
+parser.add_argument('--nonserif_style_path', '-nonserif_style_path', type=str, default='input/1/style2_sanserif_A.png')
+parser.add_argument('--content_path', '-content_path', type=str, default='input/1/content_sanserif_A.png')
 # parser for output path
 parser.add_argument('--output_path', '-output_path', type=str, default='./output/', help='Path to save output files')
 # parser for cuda
@@ -95,9 +95,8 @@ output_path = args.output_path + n
 os.makedirs(output_path, exist_ok=True)
 
 # Get network
-vgg = VGG()
-vgg.load_state_dict(torch.load('./vgg_conv.pth'))
-
+vgg = VGG(device)
+vgg.load_state_dict(torch.load('./vgg_conv_0_1.pth'))
 for param in vgg.parameters():
     param.requires_grad = False
 vgg.to(device)
@@ -108,7 +107,7 @@ vgg.eval()
 from torchvision import models
 vgg_with_top = models.resnet18(weights=None)
 vgg_with_top.fc = nn.Linear(512, 26)
-vgg_with_top.load_state_dict(torch.load('./resnet_BGR.pth'))
+vgg_with_top.load_state_dict(torch.load('./resnet_0_1.pth'))
 
 for param in vgg_with_top.parameters():
     param.requires_grad = False
@@ -149,7 +148,9 @@ with torch.no_grad():
     prob = nn.Softmax(dim=1)(logit)
     pred_class = torch.max(prob, 1)[1].cpu().detach().clone()
     content_class = pred_class.to(device)
-print('content class: ', chr(ord('A') + pred_class.item()))
+content_chr = chr(ord('A') + pred_class.item())
+assert(content_chr == content_name[-5])
+print('content class: ', content_chr)
 
 fms_layers = style_layers + content_layers
 # loss_functions = [GramMSELoss()] * len(style_layers) + [nn.MSELoss()] * len(content_layers) + [nn.CrossEntropyLoss()] * len(cross_entropy_layers)
@@ -208,8 +209,8 @@ while n_iter[0] <= max_iter:
     def closure():
         optimizer.zero_grad()
 
-        # with torch.no_grad():
-        #     opt_img.clamp_(0, 255)
+        with torch.no_grad():
+            opt_img.clamp_(min=0, max=1)
         out_feature = vgg(opt_img, fms_layers)
 
         # Divide between style feature maps and content feature maps
@@ -256,7 +257,7 @@ while n_iter[0] <= max_iter:
 
         ## Cross Entropy Loss
         # with torch.no_grad():
-        #     opt_img.clamp_(0, 255)
+        #     opt_img.clamp_(min=0, max=1)
         # out_logits = vgg_with_top(opt_img, cross_entropy_layers)
         # opt_logits = out_logits
         out_logits = vgg_with_top(opt_img)
@@ -307,6 +308,10 @@ while n_iter[0] <= max_iter:
         return loss
 
     optimizer.step(closure)
+
+# a last correction...
+with torch.no_grad():
+    opt_img.clamp_(min=0, max=1)
 
 # Save sum images
 save_images(content_image.data[0].cpu().squeeze(), opt_img.data[0].cpu().squeeze(), style_image1.data[0].cpu().squeeze(), style_image2.data[0].cpu().squeeze(), image_size, output_path, n_iter, content_invert, style_invert, result_invert)

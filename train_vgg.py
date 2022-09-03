@@ -67,12 +67,12 @@ def make_dataloader():
     batch_size = 64
 
     transform = transforms.Compose([
-                            transforms.Resize((img_size,img_size)),
                             transforms.ToTensor(),
-                            transforms.Lambda(lambda x: x[torch.LongTensor([2,1,0])]), #turn to BGR
-                            transforms.Normalize(mean=[0.40760392, 0.45795686, 0.48501961], #subtract imagenet mean
-                                                    std=[1,1,1]),
-                            transforms.Lambda(lambda x: x.mul_(255)),
+                            transforms.Resize((img_size,img_size)),
+                            # transforms.Lambda(lambda x: x[torch.LongTensor([2,1,0])]), #turn to BGR
+                            # transforms.Normalize(mean=[0.40760392, 0.45795686, 0.48501961], #subtract imagenet mean
+                            #                         std=[1,1,1]),
+                            # transforms.Lambda(lambda x: x.mul_(255)),
                         ])
 
     train_path, val_path, test_path = make_path_list()
@@ -90,9 +90,9 @@ def make_dataloader():
 
 def train(device):
     layers = ['fc3']
-    epochs = 10
+    epochs = 20
     n_classes = 26
-    vgg_filename = 'resnet_BGR.pth'
+    vgg_filename = 'resnet.pth'
     device = 'cuda:0' if torch.cuda.is_available else 'cpu'
 
     # vgg = VGG(n_classes)
@@ -220,7 +220,7 @@ if __name__ == '__main__':
     random.seed(SEED)
 
     args = sys.argv
-    if len(args) < 1:
+    if len(args) < 2:
         main()
     elif args[1] == 'test':
         test()

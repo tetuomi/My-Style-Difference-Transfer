@@ -6,7 +6,7 @@ class VGG(nn.Module):
     def __init__(self, n_classes=26, pool='max'):
         super(VGG, self).__init__()
         # feature extractor
-        self.conv1_1 = nn.Conv2d(3, 64, kernel_size=3, padding=1)
+        self.conv1_1 = nn.Conv2d(1, 64, kernel_size=3, padding=1)
         self.conv1_2 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
         self.conv2_1 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
         self.conv2_2 = nn.Conv2d(128, 128, kernel_size=3, padding=1)
