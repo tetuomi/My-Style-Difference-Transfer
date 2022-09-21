@@ -1,18 +1,22 @@
-import argparse
 import os
+import sys
 import os.path
+import argparse
 from glob import glob
-
-import torch
-from torch.autograd import Variable
-import torch.nn as nn
-from torch import optim
 
 import matplotlib.pyplot as plt
 
+import torch
+import torch.nn as nn
+from torch import optim
+from torch.autograd import Variable
+
+
 from utility.vgg_network import VGG
 from utility.vgg_network_with_top import VGG as VGGWithTOP
+
 from utility.utility import *
+
 #############################################################################
 # PARSER
 parser = argparse.ArgumentParser(description='Style Difference Transfer')
@@ -38,9 +42,9 @@ parser.add_argument('--content_class', '-content_class', type=int, default=0, he
 # parser for input images paths and names
 parser.add_argument('--image_size', '-image_size', type=int, default=256)
 # parser for input images paths and names
-parser.add_argument('--serif_style_path', '-serif_style_path', type=str, default='input/1/style1_serif_A.png')
-parser.add_argument('--nonserif_style_path', '-nonserif_style_path', type=str, default='input/1/style2_sanserif_A.png')
-parser.add_argument('--content_path', '-content_path', type=str, default='input/1/content_sanserif_A.png')
+parser.add_argument('--serif_style_path', '-serif_style_path', type=str, default='input/15/style1_serif_Q.png')
+parser.add_argument('--nonserif_style_path', '-nonserif_style_path', type=str, default='input/15/style2_sanserif_O.png')
+parser.add_argument('--content_path', '-content_path', type=str, default='input/15/content_sanserif_O.png')
 # parser for output path
 parser.add_argument('--output_path', '-output_path', type=str, default='./output/', help='Path to save output files')
 # parser for cuda
@@ -94,28 +98,44 @@ n = str(len(glob(args.output_path + '*'))+1) + '/'
 output_path = args.output_path + n
 os.makedirs(output_path, exist_ok=True)
 
+log_path = output_path + 'log.txt'
+sys.stdout = Logger(log_path)
+
 # Get network
-vgg = VGG(device)
-vgg.load_state_dict(torch.load('./vgg_conv_0_1.pth'))
-for param in vgg.parameters():
+## for char class
+n_classes = 26
+cnn = VGGWithTOP(n_classes=n_classes, mean=[0, 0, 0], std=[1/255, 1/255, 1/255])
+cnn.load_state_dict(torch.load('vgg_char_class_0_1.pth'))
+
+## for char style
+# n_classes = 4
+# cnn = VGGWithTOP(n_classes=n_classes, mean=[0, 0, 0], std=[1/255, 1/255, 1/255])
+# cnn.load_state_dict(torch.load('vgg_char_style_0_1.pth'))
+
+## for imagenet
+### VGG
+# cnn = VGG(mean=[0.48235, 0.45882, 0.40784], std=[1/255, 1/255, 1/255])
+# cnn.load_state_dict(torch.load('vgg_imagenet_0_1.pth'))
+
+for param in cnn.parameters():
     param.requires_grad = False
-vgg.to(device)
-vgg.eval()
+cnn.to(device)
+cnn.eval()
 
 # vgg_with_top = VGGWithTOP(n_classes)
 # vgg_with_top.load_state_dict(torch.load('./vgg_with_top.pth'))
-from torchvision import models
-vgg_with_top = models.resnet18(weights=None)
-vgg_with_top.fc = nn.Linear(512, 26)
-vgg_with_top.load_state_dict(torch.load('./resnet_0_1.pth'))
+# from torchvision import models
+# vgg_with_top = models.resnet18(weights=None)
+# vgg_with_top.fc = nn.Linear(512, 26)
+# vgg_with_top.load_state_dict(torch.load('./resnet_BGR.pth'))
 
-for param in vgg_with_top.parameters():
-    param.requires_grad = False
-vgg_with_top.to(device)
-vgg_with_top.eval()
+# for param in vgg_with_top.parameters():
+#     param.requires_grad = False
+# vgg_with_top.to(device)
+# vgg_with_top.eval()
 
 # Load images
-content_image = load_images(os.path.join(content_dir, content_name), image_size, device, content_invert)
+content_image = load_images(os.path.join(content_dir,content_name), image_size, device, content_invert)
 style_image1  = load_images(os.path.join(style_dir1,style_name1), image_size, device, style_invert)
 style_image2  = load_images(os.path.join(style_dir2,style_name2), image_size, device, style_invert)
 
@@ -134,23 +154,21 @@ style_weights = [sw for sw in [sw1,sw2,sw3,sw4,sw5]]
 # Content layers
 # content_layers = ['r12','r22','r32','r42','r52']
 # content_layers = ['r31','r32','r33','r34','r41']
-content_layers = ['r42']
+content_layers = ['r12'] # ['r42']
 # content_weights = [cw1*1e3]
 content_weights = [cw1]
 # content_weights = [cw1*1e4,cw2*1e4,cw3*1e4,cw4*1e4,cw5*1e4]
 
 # Cross Entropy layers
-cross_entropy_layers = ['fc3']
-cross_entropy_weights = [cew1]
-with torch.no_grad():
-    # logit = vgg_with_top(opt_img, cross_entropy_layers)[0]
-    logit = vgg_with_top(opt_img)
-    prob = nn.Softmax(dim=1)(logit)
-    pred_class = torch.max(prob, 1)[1].cpu().detach().clone()
-    content_class = pred_class.to(device)
-content_chr = chr(ord('A') + pred_class.item())
-assert(content_chr == content_name[-5])
-print('content class: ', content_chr)
+# cross_entropy_layers = ['fc3']
+# cross_entropy_weights = [cew1]
+# with torch.no_grad():
+#     # logit = vgg_with_top(opt_img, cross_entropy_layers)[0]
+#     logit = vgg_with_top(opt_img)
+#     prob = nn.Softmax(dim=1)(logit)
+#     pred_class = torch.max(prob, 1)[1].cpu().detach().clone()
+#     content_class = pred_class.to(device)
+# print('content class: ', chr(ord('A') + pred_class.item()))
 
 fms_layers = style_layers + content_layers
 # loss_functions = [GramMSELoss()] * len(style_layers) + [nn.MSELoss()] * len(content_layers) + [nn.CrossEntropyLoss()] * len(cross_entropy_layers)
@@ -162,8 +180,8 @@ fms_layers = style_layers + content_layers
 ### Gram matrix targets
 
 # Feature maps from style layers of the style images
-style1_fms_style = [A.detach() for A in vgg(style_image1, style_layers)]
-style2_fms_style = [A.detach() for A in vgg(style_image2, style_layers)]
+style1_fms_style = [A.detach() for A in cnn(style_image1, style_layers)]
+style2_fms_style = [A.detach() for A in cnn(style_image2, style_layers)]
 # Gram matrices of style feature maps
 style1_gramm = [GramMatrix()(A) for A in style1_fms_style]
 style2_gramm = [GramMatrix()(A) for A in style2_fms_style]
@@ -178,18 +196,18 @@ gramm_style = [(style1_gramm[i] - style2_gramm[i]) for i in range(len(style_laye
 
 
 # Feature maps from style layers of the content image
-content_fms_style = [A.detach() for A in vgg(content_image, style_layers)]
+content_fms_style = [A.detach() for A in cnn(content_image, style_layers)]
 content_gramm = [GramMatrix()(A) for A in content_fms_style]
 
 
 ### Content targets
 # Feature maps from content layers of the style images
-style1_fms_content = [A.detach() for A in vgg(style_image1, content_layers)]
-style2_fms_content = [A.detach() for A in vgg(style_image2, content_layers)]
+style1_fms_content = [A.detach() for A in cnn(style_image1, content_layers)]
+style2_fms_content = [A.detach() for A in cnn(style_image2, content_layers)]
 # Difference between feature maps
 style_fms_content = [(style1_fms_content[i] - style2_fms_content[i]) for i in range(len(content_layers))]
 # Feature maps from content layers of the content image
-content_fms_content = [A.detach() for A in vgg(content_image, content_layers)]
+content_fms_content = [A.detach() for A in cnn(content_image, content_layers)]
 
 
 # Run style transfer
@@ -202,16 +220,16 @@ n_iter=[0]
 loss_list = []
 c_loss = []
 s_loss = []
-ce_loss = []
+# ce_loss = []
 
 while n_iter[0] <= max_iter:
 
     def closure():
         optimizer.zero_grad()
 
-        with torch.no_grad():
-            opt_img.clamp_(min=0, max=1)
-        out_feature = vgg(opt_img, fms_layers)
+        # with torch.no_grad():
+        #     opt_img.clamp_(0, 255)
+        out_feature = cnn(opt_img, fms_layers)
 
         # Divide between style feature maps and content feature maps
         opt_fms_style = out_feature[:len(style_layers)]
@@ -257,24 +275,24 @@ while n_iter[0] <= max_iter:
 
         ## Cross Entropy Loss
         # with torch.no_grad():
-        #     opt_img.clamp_(min=0, max=1)
+        #     opt_img.clamp_(0, 255)
         # out_logits = vgg_with_top(opt_img, cross_entropy_layers)
         # opt_logits = out_logits
-        out_logits = vgg_with_top(opt_img)
-        opt_logits = [out_logits]
+        # out_logits = vgg_with_top(opt_img)
+        # opt_logits = [out_logits]
 
-        cross_entropy_losses = [cross_entropy_weights[i]*nn.CrossEntropyLoss()(opt_logits[i], content_class) for i in range(len(cross_entropy_layers))]
+        # cross_entropy_losses = [cross_entropy_weights[i]*nn.CrossEntropyLoss()(opt_logits[i], content_class) for i in range(len(cross_entropy_layers))]
 
-        closs_entropy_loss = sum(cross_entropy_losses)
-        closs_entropy_loss.backward()
+        # closs_entropy_loss = sum(cross_entropy_losses)
+        # closs_entropy_loss.backward()
 
         # total loss
-        loss = fms_loss + closs_entropy_loss
+        loss = fms_loss #+ closs_entropy_loss
 
         # for log
         c_loss.append(content_loss.item())
         s_loss.append(style_loss.item())
-        ce_loss.append(closs_entropy_loss.item())
+        # ce_loss.append(closs_entropy_loss.item())
         loss_list.append(loss.item())
 
         #print loss
@@ -282,21 +300,22 @@ while n_iter[0] <= max_iter:
             print('Iteration: {}'.format(n_iter[0]))
             if len(content_layers)>0: print('Content loss: {}'.format(content_loss.item()))
             if len(style_layers)>0:   print('Style loss  : {}'.format(style_loss.item()))
-            if len(cross_entropy_layers)>0:   print('Cross Entropy loss  : {}'.format(closs_entropy_loss.item()))
-            with torch.no_grad():
-                # logit = vgg_with_top(opt_img.detach().clone(), cross_entropy_layers)[0]
-                logit = vgg_with_top(opt_img.detach().clone())
-                prob = nn.Softmax(dim=1)(logit.cpu().detach().clone())
-                pred = torch.max(prob, 1)[1].item()
-            print('predict label:', chr(ord('A') + pred), 'prob:',  prob[0][pred].item())
-            # print('other prob:', prob[0])
+            # if len(cross_entropy_layers)>0:   print('Cross Entropy loss  : {}'.format(closs_entropy_loss.item()))
+            # with torch.no_grad():
+            #     # logit = vgg_with_top(opt_img.detach().clone(), cross_entropy_layers)[0]
+            #     logit = vgg_with_top(opt_img.detach().clone())
+            #     prob = nn.Softmax(dim=1)(logit.cpu().detach().clone())
+            #     pred = torch.max(prob, 1)[1].item()
+            # print('predict label:', chr(ord('A') + pred), 'prob:',  prob[0][pred].item())
+            # # print('other prob:', prob[0])
+            pred = 0
             print('Total loss  : {}\n'.format(loss.item()))
 
             # Save loss graph
             plt.plot(loss_list, label='Total loss')
             if len(content_layers)>0:  plt.plot(c_loss, label='Content loss')
             if len(style_layers)>0:  plt.plot(s_loss, label='Style loss')
-            if len(cross_entropy_layers)>0:  plt.plot(ce_loss, label='Cross Entropy loss')
+            # if len(cross_entropy_layers)>0:  plt.plot(ce_loss, label='Cross Entropy loss')
             plt.legend()
             plt.savefig(output_path + 'loss_graph.jpg')
             plt.close()
@@ -308,10 +327,6 @@ while n_iter[0] <= max_iter:
         return loss
 
     optimizer.step(closure)
-
-# a last correction...
-with torch.no_grad():
-    opt_img.clamp_(min=0, max=1)
 
 # Save sum images
 save_images(content_image.data[0].cpu().squeeze(), opt_img.data[0].cpu().squeeze(), style_image1.data[0].cpu().squeeze(), style_image2.data[0].cpu().squeeze(), image_size, output_path, n_iter, content_invert, style_invert, result_invert)

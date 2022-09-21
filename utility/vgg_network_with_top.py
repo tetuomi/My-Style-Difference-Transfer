@@ -2,11 +2,25 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class Normalization(nn.Module):
+    def __init__(self, mean, std, device):
+        super(Normalization, self).__init__()
+        self.mean = torch.tensor(mean).view(-1, 1, 1).to(device)
+        self.std = torch.tensor(std).view(-1, 1, 1).to(device)
+
+    def forward(self, img):
+        return (img - self.mean) / self.std
+
 class VGG(nn.Module):
-    def __init__(self, n_classes=26, pool='max'):
+    def __init__(self, n_classes=26, mean=[0, 0, 0], std=[1/255, 1/255, 1/255], pool='max', device='cuda:0'):
         super(VGG, self).__init__()
+
+        # data augmentation
+        # self.prep = Normalization(mean=[0.5, 0.5, 0.5], std=[1/255, 1/255, 1/255], device=device)
+        self.prep = Normalization(mean=mean, std=std, device=device)
+
         # feature extractor
-        self.conv1_1 = nn.Conv2d(1, 64, kernel_size=3, padding=1)
+        self.conv1_1 = nn.Conv2d(3, 64, kernel_size=3, padding=1)
         self.conv1_2 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
         self.conv2_1 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
         self.conv2_2 = nn.Conv2d(128, 128, kernel_size=3, padding=1)
@@ -43,7 +57,8 @@ class VGG(nn.Module):
         self.fc2 = nn.Linear(4096, 4096)
         self.fc3 = nn.Linear(4096, n_classes)
 
-        self.dropout = nn.Dropout(p=0.5)
+        self.dropout1 = nn.Dropout(p=0.5)
+        self.dropout2 = nn.Dropout(p=0.5)
 
         # Initalization
         self._initialize_weights()
@@ -60,7 +75,8 @@ class VGG(nn.Module):
 
     def forward(self, x, out_keys):
         out = {}
-        out['r11'] = F.relu(self.conv1_1(x))
+        prep_x = self.prep(x)
+        out['r11'] = F.relu(self.conv1_1(prep_x))
         out['r12'] = F.relu(self.conv1_2(out['r11']))
         out['p1'] = self.pool1(out['r12'])
 
@@ -90,9 +106,9 @@ class VGG(nn.Module):
 
         flattened_out = torch.flatten(out['p6'], 1)
         out['fc1'] = F.relu(self.fc1(flattened_out))
-        out_fc1 = self.dropout(out['fc1'])
+        out_fc1 = self.dropout1(out['fc1'])
         out['fc2'] = F.relu(self.fc2(out_fc1))
-        out_fc2 = self.dropout(out['fc2'])
+        out_fc2 = self.dropout2(out['fc2'])
         out['fc3'] = self.fc3(out_fc2)
 
         return [out[key] for key in out_keys]
