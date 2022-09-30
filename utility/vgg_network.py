@@ -50,7 +50,8 @@ class VGG(nn.Module):
 
     def forward(self, x, out_keys):
         out = {}
-        out['r11'] = F.relu(self.conv1_1(x))
+        prep_x = self.prep(x)
+        out['r11'] = F.relu(self.conv1_1(prep_x))
         out['r12'] = F.relu(self.conv1_2(out['r11']))
         out['p1'] = self.pool1(out['r12'])
 
