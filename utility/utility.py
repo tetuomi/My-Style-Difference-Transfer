@@ -1,4 +1,5 @@
 import os
+import sys
 
 import torch
 from torch.autograd import Variable
@@ -15,6 +16,20 @@ import cv2
 import matplotlib.pyplot as plt
 
 
+class Logger(object):
+    def __init__(self, logfile_path):
+        self.terminal = sys.stdout
+        self.log = open(logfile_path, 'a')
+
+    def write(self, message):
+        self.terminal.write(message)
+        self.log.write(message)
+
+    def flush(self):
+        #this flush method is needed for python 3 compatibility.
+        #this handles the flush command by doing nothing.
+        #you might want to specify some extra behavior here.
+        pass
 
 # post processing for images
 postpa = transforms.Compose([transforms.Lambda(lambda x: x.mul_(1./255)),

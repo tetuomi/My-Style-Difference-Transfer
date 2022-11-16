@@ -1,5 +1,6 @@
 import argparse
 import os
+import sys
 import os.path
 from glob import glob
 
@@ -94,6 +95,8 @@ n = str(len(glob(args.output_path + '*'))+1) + '/'
 output_path = args.output_path + n
 os.makedirs(output_path, exist_ok=True)
 
+log_path = output_path + 'log.txt'
+sys.stdout = Logger(log_path)
 # Get network
 vgg = VGG()
 vgg.load_state_dict(torch.load('./vgg_conv.pth'))
