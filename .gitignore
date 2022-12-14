@@ -4,3 +4,4 @@ output*/**
 loss.png
 acc.png
 input/**
+.vscode/**
